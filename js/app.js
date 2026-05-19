@@ -182,7 +182,11 @@ async function handlePartySend(text) {
 
   // Each selected agent responds in turn
   const respondingAgents = [...partyMode.selectedAgents];
-  const allMessages = [{ role: 'user', content: text }];
+  
+  // Load full conversation history for context, or start fresh if no session
+  const allMessages = partyMode.sessionId 
+    ? storage.getPartyConversation(partyMode.sessionId) 
+    : [{ role: 'user', content: text }];
 
   for (const agent of respondingAgents) {
     const systemPrompt = partyMode.getPartySystemPrompt(agent, partyTopic);

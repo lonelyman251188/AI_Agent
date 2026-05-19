@@ -153,12 +153,46 @@ async function handleSend() {
   const sendBtn = document.getElementById('send-btn');
   sendBtn.disabled = true;
 
-  const systemPromptCoT = `${currentAgent.systemPrompt}\n\nCHÚ Ý QUAN TRỌNG: Bạn LUÔN PHẢI bắt đầu bằng một khối <thinking>...các bước suy luận logic của bạn...</thinking> để phân tích vấn đề trước khi đưa ra câu trả lời chính thức.`;
+  const systemPromptCoT = `${currentAgent.systemPrompt}\n\nCHÚ Ý QUAN TRỌNG: Bạn LUÔN PHẢI bắt đầu bằng một khối <thinking>...các bước suy luận logic của bạn...</thinking> để phân tích vấn đề trước khi đưa ra câu trả lời chính thức.\n\n[CÔNG CỤ TÌM KIẾM WEB]: Nếu bạn thiếu thông tin thực tế, hãy xuất ra chính xác chuỗi [SEARCH: từ khóa cần tìm]. Hệ thống sẽ tự động tìm kiếm trên Wikipedia và trả kết quả cho bạn. KHÔNG giải thích, chỉ in ra lệnh SEARCH.`;
 
   try {
-    for await (const chunk of aiApi.streamChat(history, systemPromptCoT)) {
-      stream.append(chunk);
+    let currentText = '';
+    let isSearching = false;
+    let searchQuery = '';
+
+    const runStream = async (msgs) => {
+      try {
+        for await (const chunk of aiApi.streamChat(msgs, systemPromptCoT)) {
+          stream.append(chunk);
+          currentText = stream.getText();
+          const match = currentText.match(/\[SEARCH:\s*([^\]]+)\]/);
+          if (match && !isSearching) {
+            isSearching = true;
+            searchQuery = match[1].trim();
+            aiApi.abortStream();
+          }
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') throw err;
+      }
+    };
+
+    await runStream(history);
+
+    if (isSearching && searchQuery) {
+      stream.append(`\n\n> 🔍 *Đang tìm kiếm Wikipedia cho: "${searchQuery}"...*\n\n`);
+      const searchResult = await aiApi.searchWikipedia(searchQuery);
+      
+      history.push({ role: 'assistant', content: currentText });
+      history.push({ 
+        role: 'system', 
+        content: `KẾT QUẢ TÌM KIẾM WIKIPEDIA CHO "${searchQuery}":\n${searchResult}\n\nHãy tiếp tục câu trả lời của bạn dựa trên thông tin này (không cần in lại lệnh SEARCH).` 
+      });
+
+      isSearching = false;
+      await runStream(history);
     }
+
     const fullText = stream.finish();
     storage.saveMessage(currentAgent.id, { role: 'assistant', content: fullText });
   } catch (err) {
@@ -183,12 +217,33 @@ async function handlePartySend(text) {
   sendBtn.disabled = true;
 
   // Each selected agent responds in turn
-  const respondingAgents = [...partyMode.selectedAgents];
   
   // Load full conversation history for context, or start fresh if no session
-  const allMessages = partyMode.sessionId 
+  let allMessages = partyMode.sessionId 
     ? storage.getPartyConversation(partyMode.sessionId) 
     : [{ role: 'user', content: text }];
+
+  // --- Supervisor Agent (Feature 3) ---
+  let respondingAgents = [...partyMode.selectedAgents];
+  if (respondingAgents.length > 1) {
+    const agentListText = respondingAgents.map(a => `- ${a.id}: ${a.name} (${a.role})`).join('\n');
+    const supervisorPrompt = `Bạn là Trưởng nhóm. Dựa vào lịch sử hội thoại, hãy chọn ra 1 đến 2 agent phù hợp nhất để trả lời tiếp theo.
+Danh sách agent hiện có:
+${agentListText}
+
+CHỈ trả về một mảng JSON chứa các ID của agent được chọn (ví dụ: ["analyst", "pm"]). TUYỆT ĐỐI không viết gì thêm.`;
+    
+    try {
+      const supervisorDecision = await aiApi.generateText(allMessages, supervisorPrompt, true);
+      const chosenIds = JSON.parse(supervisorDecision);
+      if (Array.isArray(chosenIds) && chosenIds.length > 0) {
+        const chosen = chosenIds.map(id => partyMode.selectedAgents.find(a => a.id === id)).filter(Boolean);
+        if (chosen.length > 0) respondingAgents = chosen;
+      }
+    } catch (e) {
+      console.warn('Supervisor parsing failed, fallback to all agents.', e);
+    }
+  }
 
   for (const agent of respondingAgents) {
     const systemPrompt = partyMode.getPartySystemPrompt(agent, partyTopic);
@@ -198,10 +253,46 @@ async function handlePartySend(text) {
       agentEmoji: agent.emoji,
     });
 
-    try {
-      for await (const chunk of aiApi.streamChat(allMessages, systemPrompt)) {
-        stream.append(chunk);
+    let currentText = '';
+    let isSearching = false;
+    let searchQuery = '';
+
+    const runStream = async (msgs) => {
+      try {
+        for await (const chunk of aiApi.streamChat(msgs, systemPrompt)) {
+          stream.append(chunk);
+          currentText = stream.getText();
+          const match = currentText.match(/\[SEARCH:\s*([^\]]+)\]/);
+          if (match && !isSearching) {
+            isSearching = true;
+            searchQuery = match[1].trim();
+            aiApi.abortStream();
+          }
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') throw err;
       }
+    };
+
+    try {
+      await runStream(allMessages);
+
+      // --- Web Search Tool (Feature 4) ---
+      if (isSearching && searchQuery) {
+        stream.append(`\n\n> 🔍 *Đang tìm kiếm Wikipedia cho: "${searchQuery}"...*\n\n`);
+        const searchResult = await aiApi.searchWikipedia(searchQuery);
+        
+        allMessages.push({ role: 'assistant', content: currentText });
+        allMessages.push({ 
+          role: 'system', 
+          content: `KẾT QUẢ TÌM KIẾM WIKIPEDIA CHO "${searchQuery}":\n${searchResult}\n\nHãy tiếp tục câu trả lời của bạn dựa trên thông tin này (không cần in lại lệnh SEARCH).` 
+        });
+
+        isSearching = false;
+        // Resume generation
+        await runStream(allMessages);
+      }
+
       const fullText = stream.finish();
       allMessages.push({ role: 'assistant', content: fullText });
 

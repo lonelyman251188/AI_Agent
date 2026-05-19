@@ -116,6 +116,58 @@ class AIApi {
     }
   }
 
+  async generateText(messages, systemPrompt, jsonMode = false) {
+    const body = {
+      model: this.model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages.map(m => ({ role: m.role, content: m.content })),
+      ],
+      temperature: this.temperature,
+      max_tokens: this.maxTokens,
+      stream: false,
+    };
+    if (jsonMode) {
+      body.format = 'json'; // Ensure Ollama returns JSON
+      body.response_format = { type: 'json_object' }; // For OpenAI compatibility
+    }
+
+    try {
+      const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) throw new Error(`API Error ${res.status}`);
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content || '';
+    } catch (err) {
+      console.error('generateText error:', err);
+      return '';
+    }
+  }
+
+  async searchWikipedia(query) {
+    try {
+      const url = `https://vi.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`;
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.query && data.query.search && data.query.search.length > 0) {
+        const results = data.query.search.slice(0, 3).map(item => {
+          const cleanSnippet = item.snippet.replace(/<\/?[^>]+(>|$)/g, "");
+          return `[Tiêu đề: ${item.title}]\n${cleanSnippet}`;
+        });
+        return results.join('\n\n');
+      }
+      return 'Không tìm thấy kết quả trên Wikipedia.';
+    } catch (e) {
+      console.error('Wikipedia search error:', e);
+      return 'Lỗi kết nối tìm kiếm.';
+    }
+  }
+
   abortStream() {
     if (this._currentController) {
       this._currentController.abort();

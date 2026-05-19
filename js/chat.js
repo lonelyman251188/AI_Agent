@@ -28,10 +28,12 @@ class ChatEngine {
   // Simple markdown → HTML
   renderMarkdown(text) {
     let html = text
+      // Thinking blocks
+      .replace(/<thinking>([\s\S]*?)<\/thinking>/g, '<details class="thinking-block"><summary>🧠 Nhấn để xem luồng suy nghĩ</summary><div class="thinking-content">$1</div></details>')
       // Code blocks
       .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
         const escaped = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return `<pre><code class="language-${lang || 'text'}">${escaped}</code><button class="code-copy-btn" onclick="chatEngine.copyCode(this)">Copy</button></pre>`;
+        return `<pre><code class="language-${lang || 'text'}">${escaped}</code><div class="code-actions"><button class="code-copy-btn" onclick="chatEngine.copyCode(this)">Copy</button><button class="code-download-btn" onclick="chatEngine.downloadCode(this, '${lang}')">Download</button></div></pre>`;
       })
       // Inline code
       .replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -62,12 +64,45 @@ class ChatEngine {
   }
 
   copyCode(btnEl) {
-    const code = btnEl.previousElementSibling || btnEl.parentElement.querySelector('code');
+    const pre = btnEl.closest('pre');
+    const code = pre ? pre.querySelector('code') : null;
     if (code) {
       navigator.clipboard.writeText(code.textContent).then(() => {
         btnEl.textContent = '✓ Copied';
         setTimeout(() => btnEl.textContent = 'Copy', 2000);
       });
+    }
+  }
+
+  downloadCode(btnEl, lang) {
+    const pre = btnEl.closest('pre');
+    const code = pre ? pre.querySelector('code') : null;
+    if (code) {
+      const text = code.textContent;
+      const extensions = {
+        'javascript': 'js', 'js': 'js',
+        'python': 'py', 'py': 'py',
+        'html': 'html',
+        'css': 'css',
+        'json': 'json',
+        'markdown': 'md', 'md': 'md',
+        'csv': 'csv',
+        'xml': 'xml',
+        'sql': 'sql',
+        'typescript': 'ts', 'ts': 'ts'
+      };
+      const ext = extensions[lang ? lang.toLowerCase() : ''] || 'txt';
+      const filename = `export_${Date.now()}.${ext}`;
+      
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
   }
 

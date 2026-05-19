@@ -153,8 +153,10 @@ async function handleSend() {
   const sendBtn = document.getElementById('send-btn');
   sendBtn.disabled = true;
 
+  const systemPromptCoT = `${currentAgent.systemPrompt}\n\nCHÚ Ý QUAN TRỌNG: Bạn LUÔN PHẢI bắt đầu bằng một khối <thinking>...các bước suy luận logic của bạn...</thinking> để phân tích vấn đề trước khi đưa ra câu trả lời chính thức.`;
+
   try {
-    for await (const chunk of aiApi.streamChat(history, currentAgent.systemPrompt)) {
+    for await (const chunk of aiApi.streamChat(history, systemPromptCoT)) {
       stream.append(chunk);
     }
     const fullText = stream.finish();

@@ -55,6 +55,8 @@ Bạn đang tham gia thảo luận nhóm. Các đồng nghiệp của bạn là:
 - Giữ câu trả lời súc tích nhưng đầy đủ nội dung thực thi.
 - Bắt đầu câu trả lời của bạn bằng đúng định dạng này: "${agent.emoji} **${agent.name}:** "
 
+ĐIỀU KIỆN TIÊN QUYẾT: TOÀN BỘ CÂU TRẢ LỜI CỦA BẠN PHẢI ĐƯỢC VIẾT 100% BẰNG TIẾNG VIỆT. TUYỆT ĐỐI KHÔNG SỬ DỤNG TIẾNG TRUNG QUỐC (CHINESE).
+
 Câu nói gần nhất của người dùng: ${topic || 'Chưa có'}`;
   }
 

@@ -275,6 +275,29 @@ class ChatEngine {
     });
   }
 
+  // Reload Party Mode conversation history
+  loadPartyHistory(messages) {
+    this.container.innerHTML = '';
+    messages.forEach(m => {
+      if (m.role === 'user') {
+        this.addMessage({
+          role: 'user',
+          content: m.content,
+          timestamp: m.timestamp,
+        });
+      } else if (m.role === 'assistant') {
+        const agent = AGENTS.find(a => a.id === m.agentId);
+        this.addMessage({
+          role: 'assistant',
+          content: m.content,
+          agentName: agent ? agent.name : 'AI',
+          agentEmoji: agent ? agent.emoji : '🤖',
+          timestamp: m.timestamp,
+        });
+      }
+    });
+  }
+
   clear() {
     this.container.innerHTML = '';
   }

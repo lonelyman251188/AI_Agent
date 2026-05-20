@@ -15,8 +15,14 @@ document.addEventListener('DOMContentLoaded', () => {
   chatEngine = new ChatEngine(chatArea, chatInput, sendBtn);
 
   renderAgentList();
-  selectAgent(AGENTS[0].id);
   checkConnection();
+
+  // Restore Party Mode if it was active, otherwise select default agent
+  if (partyMode.active && partyMode.selectedAgents.length >= 2) {
+    restorePartyMode();
+  } else {
+    selectAgent(AGENTS[0].id);
+  }
 
   // Send message
   sendBtn.addEventListener('click', handleSend);
@@ -343,18 +349,57 @@ function openPartyModal() {
   const modal = document.getElementById('modal-party');
   const grid = document.getElementById('party-agent-grid');
 
-  grid.innerHTML = AGENTS.map(agent => `
-    <div class="party-agent-card" data-agent-id="${agent.id}">
-      <span class="emoji">${agent.emoji}</span>
-      <span class="label">${agent.name} — ${agent.role}</span>
-    </div>
-  `).join('');
+  const activeIds = partyMode.selectedAgents.map(a => a.id);
+
+  grid.innerHTML = AGENTS.map(agent => {
+    // If no agents are active, select analyst and pm by default. Otherwise select currently active agents.
+    const isSelected = activeIds.includes(agent.id) || (activeIds.length === 0 && (agent.id === 'analyst' || agent.id === 'pm'));
+    return `
+      <div class="party-agent-card ${isSelected ? 'selected' : ''}" data-agent-id="${agent.id}">
+        <span class="emoji">${agent.emoji}</span>
+        <span class="label">${agent.name} — ${agent.role}</span>
+      </div>
+    `;
+  }).join('');
 
   grid.querySelectorAll('.party-agent-card').forEach(card => {
     card.addEventListener('click', () => card.classList.toggle('selected'));
   });
 
   modal.classList.add('active');
+}
+
+function restorePartyMode() {
+  document.getElementById('btn-stop-party').style.display = 'flex';
+
+  const names = partyMode.selectedAgents.map(a => `${a.emoji}${a.name}`).join(', ');
+  document.getElementById('topbar-emoji').textContent = '🎉';
+  document.getElementById('topbar-name').textContent = 'Party Mode';
+  document.getElementById('topbar-role').textContent = names;
+
+  // Load history from local storage
+  const history = storage.getPartyConversation('party_default');
+  if (history.length > 0) {
+    chatEngine.loadPartyHistory(history);
+  } else {
+    chatEngine.clear();
+    const intro = document.createElement('div');
+    intro.className = 'welcome-screen';
+    intro.innerHTML = `
+      <div class="welcome-emoji">🎉</div>
+      <h2>Party Mode — Thảo luận nhóm</h2>
+      <p>Đặt câu hỏi và ${partyMode.selectedAgents.length} agent sẽ cùng thảo luận từ góc nhìn chuyên môn của họ.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px;">
+        ${partyMode.selectedAgents.map(a => `<span class="party-badge">${a.emoji} ${a.name}</span>`).join('')}
+      </div>
+    `;
+    document.getElementById('chat-area').appendChild(intro);
+  }
+
+  document.getElementById('chat-input').placeholder = 'Đặt câu hỏi cho cả nhóm...';
+
+  // Disable agent sidebar clicks
+  document.querySelectorAll('.agent-item').forEach(el => el.classList.remove('active'));
 }
 
 function startParty() {
@@ -370,30 +415,8 @@ function startParty() {
 
   // Update UI
   document.getElementById('modal-party').classList.remove('active');
-  document.getElementById('btn-stop-party').style.display = 'flex';
-
-  const names = partyMode.selectedAgents.map(a => `${a.emoji}${a.name}`).join(', ');
-  document.getElementById('topbar-emoji').textContent = '🎉';
-  document.getElementById('topbar-name').textContent = 'Party Mode';
-  document.getElementById('topbar-role').textContent = names;
-
-  chatEngine.clear();
-  const intro = document.createElement('div');
-  intro.className = 'welcome-screen';
-  intro.innerHTML = `
-    <div class="welcome-emoji">🎉</div>
-    <h2>Party Mode — Thảo luận nhóm</h2>
-    <p>Đặt câu hỏi và ${partyMode.selectedAgents.length} agent sẽ cùng thảo luận từ góc nhìn chuyên môn của họ.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px;">
-      ${partyMode.selectedAgents.map(a => `<span class="party-badge">${a.emoji} ${a.name}</span>`).join('')}
-    </div>
-  `;
-  document.getElementById('chat-area').appendChild(intro);
-
-  document.getElementById('chat-input').placeholder = 'Đặt câu hỏi cho cả nhóm...';
-
-  // Disable agent sidebar clicks
-  document.querySelectorAll('.agent-item').forEach(el => el.classList.remove('active'));
+  
+  restorePartyMode();
 
   showToast('Party Mode đã bắt đầu! 🎉', 'success');
 }
@@ -467,7 +490,20 @@ async function checkConnection() {
 // ---- New Chat ----
 function newChat() {
   if (partyMode.active) {
-    stopParty();
+    storage.clearPartyConversation('party_default');
+    chatEngine.clear();
+    const intro = document.createElement('div');
+    intro.className = 'welcome-screen';
+    intro.innerHTML = `
+      <div class="welcome-emoji">🎉</div>
+      <h2>Party Mode — Thảo luận nhóm</h2>
+      <p>Đặt câu hỏi và ${partyMode.selectedAgents.length} agent sẽ cùng thảo luận từ góc nhìn chuyên môn của họ.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px;">
+        ${partyMode.selectedAgents.map(a => `<span class="party-badge">${a.emoji} ${a.name}</span>`).join('')}
+      </div>
+    `;
+    document.getElementById('chat-area').appendChild(intro);
+    showToast('Đã xóa lịch sử thảo luận nhóm', 'info');
     return;
   }
   if (!currentAgent) return;

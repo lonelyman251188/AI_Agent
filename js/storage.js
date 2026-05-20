@@ -42,6 +42,10 @@ class Storage {
     localStorage.setItem(this.KEYS.conversations, JSON.stringify(all));
   }
 
+  clearPartyConversation(sessionId) {
+    localStorage.removeItem(`vteam_party_${sessionId}`);
+  }
+
   clearAllConversations() {
     localStorage.setItem(this.KEYS.conversations, JSON.stringify({}));
   }

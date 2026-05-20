@@ -8,14 +8,35 @@ class PartyMode {
     this.selectedAgents = [];
     this.sessionId = null;
     this.turnIndex = 0;
+
+    // Load persistent state from localStorage
+    try {
+      const savedActive = localStorage.getItem('vteam_party_active') === 'true';
+      const savedAgents = JSON.parse(localStorage.getItem('vteam_party_agents')) || [];
+      if (savedActive && savedAgents.length >= 2) {
+        this.active = true;
+        this.selectedAgents = AGENTS.filter(a => savedAgents.includes(a.id));
+        this.sessionId = 'party_default';
+      }
+    } catch (e) {
+      console.error('Failed to load party state', e);
+    }
   }
 
   start(agentIds) {
     this.selectedAgents = AGENTS.filter(a => agentIds.includes(a.id));
     if (this.selectedAgents.length < 2) return false;
     this.active = true;
-    this.sessionId = 'party_' + Date.now();
+    this.sessionId = 'party_default';
     this.turnIndex = 0;
+
+    // Save persistent state
+    try {
+      localStorage.setItem('vteam_party_active', 'true');
+      localStorage.setItem('vteam_party_agents', JSON.stringify(agentIds));
+    } catch (e) {
+      console.error('Failed to save party state', e);
+    }
     return true;
   }
 
@@ -24,6 +45,13 @@ class PartyMode {
     this.selectedAgents = [];
     this.sessionId = null;
     this.turnIndex = 0;
+
+    // Clear active state but we can keep agent choice in localstorage for default pre-selection
+    try {
+      localStorage.setItem('vteam_party_active', 'false');
+    } catch (e) {
+      console.error('Failed to update party active state', e);
+    }
   }
 
   getNextAgent() {

@@ -490,8 +490,16 @@ async function checkConnection() {
 // ---- New Chat ----
 function newChat() {
   if (partyMode.active) {
+    // Clear Party Mode history but stay in Party Mode
     storage.clearPartyConversation('party_default');
     chatEngine.clear();
+    // Reset send button & streaming flag
+    const sendBtn = document.getElementById('send-btn');
+    if (sendBtn) sendBtn.disabled = false;
+    chatEngine.isStreaming = false;
+    // Reset placeholder
+    document.getElementById('chat-input').placeholder = 'Đặt câu hỏi cho cả nhóm...';
+    // Show welcome intro again
     const intro = document.createElement('div');
     intro.className = 'welcome-screen';
     intro.innerHTML = `
@@ -506,6 +514,7 @@ function newChat() {
     showToast('Đã xóa lịch sử thảo luận nhóm', 'info');
     return;
   }
+  // Normal single‑agent chat
   if (!currentAgent) return;
   storage.clearConversation(currentAgent.id);
   chatEngine.showWelcome(currentAgent);

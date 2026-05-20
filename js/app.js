@@ -311,6 +311,11 @@ CHỈ trả về một mảng JSON chứa các ID của agent được chọn (v
       }
 
       const fullText = stream.finish();
+      if (!fullText.trim()) {
+        stream.element.remove();
+        showToast(`Agent ${agent.name} không phản hồi (Ollama có thể bị nghẹn/quá tải).`, 'warning');
+        continue;
+      }
       allMessages.push({ role: 'assistant', content: fullText });
 
       if (partyMode.sessionId) {
@@ -322,6 +327,7 @@ CHỈ trả về một mảng JSON chứa các ID của agent được chọn (v
       }
     } catch (err) {
       stream.finish();
+      if (stream.element) stream.element.remove();
       showToast(`Lỗi từ ${agent.name}: ${err.message}`, 'error');
       break;
     }

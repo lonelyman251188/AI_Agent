@@ -154,6 +154,27 @@ class ChatEngine {
     return msg;
   }
 
+  // Add a system or status notification message to the chat
+  addSystemMessage({ icon, content }) {
+    const msg = document.createElement('div');
+    msg.className = 'message system-message';
+    msg.innerHTML = `
+      <div class="message-avatar">
+        ${icon || '⚙️'}
+      </div>
+      <div class="message-content">
+        <div class="message-bubble system-bubble">${this.renderMarkdown(content)}</div>
+      </div>
+    `;
+
+    const welcome = this.container.querySelector('.welcome-screen');
+    if (welcome) welcome.remove();
+
+    this.container.appendChild(msg);
+    this.scrollToBottom(true);
+    return msg;
+  }
+
   // Start a streaming message (returns an updater object)
   startStreamMessage({ agentName, agentEmoji }) {
     const msg = document.createElement('div');

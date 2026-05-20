@@ -488,6 +488,32 @@ body {
   border-color: rgba(56,189,248,0.2);
 }
 
+/* System / Supervisor Messages */
+.message.system-message {
+  opacity: 0.9;
+  margin: 4px auto;
+}
+
+.message.system-message .message-avatar {
+  background: rgba(251, 191, 36, 0.08) !important;
+  border-color: rgba(251, 191, 36, 0.25) !important;
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.05);
+}
+
+.message.system-message .message-bubble.system-bubble {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, rgba(251, 191, 36, 0.01) 100%);
+  border-left: 3px solid var(--warning);
+  border-color: rgba(251, 191, 36, 0.15) rgba(251, 191, 36, 0.15) rgba(251, 191, 36, 0.15) var(--warning);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  padding: 8px 14px;
+}
+
+.message.system-message .message-bubble.system-bubble strong {
+  color: var(--warning) !important;
+  font-weight: 600;
+}
+
 .message-bubble p { margin-bottom: 10px; }
 .message-bubble p:last-child { margin-bottom: 0; }
 .message-bubble strong { color: var(--text-accent); font-weight: 600; }

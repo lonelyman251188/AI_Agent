@@ -233,15 +233,32 @@ ${agentListText}
 
 CHỈ trả về một mảng JSON chứa các ID của agent được chọn (ví dụ: ["analyst", "pm"]). TUYỆT ĐỐI không viết gì thêm.`;
     
+    const supervisorMsg = chatEngine.addSystemMessage({
+      icon: '👑',
+      content: '*Supervisor đang phân tích cuộc trò chuyện để phân công Agent phù hợp...*'
+    });
+
     try {
       const supervisorDecision = await aiApi.generateText(allMessages, supervisorPrompt, true);
       const chosenIds = JSON.parse(supervisorDecision);
       if (Array.isArray(chosenIds) && chosenIds.length > 0) {
         const chosen = chosenIds.map(id => partyMode.selectedAgents.find(a => a.id === id)).filter(Boolean);
-        if (chosen.length > 0) respondingAgents = chosen;
+        if (chosen.length > 0) {
+          respondingAgents = chosen;
+          const chosenNames = respondingAgents.map(a => `**${a.name} (${a.role})**`).join(' và ');
+          const bubble = supervisorMsg.querySelector('.message-bubble');
+          if (bubble) {
+            bubble.innerHTML = chatEngine.renderMarkdown(`👑 **Supervisor:** Đã chỉ định ${chosenNames} trả lời.`);
+          }
+        } else {
+          supervisorMsg.remove();
+        }
+      } else {
+        supervisorMsg.remove();
       }
     } catch (e) {
       console.warn('Supervisor parsing failed, fallback to all agents.', e);
+      supervisorMsg.remove();
     }
   }
 

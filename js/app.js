@@ -96,7 +96,11 @@ function renderAgentList() {
 
   list.querySelectorAll('.agent-item').forEach(item => {
     item.addEventListener('click', () => {
-      if (partyMode.active) return;
+      if (partyMode.active) {
+        partyMode.stop();
+        document.getElementById('btn-stop-party').style.display = 'none';
+        showToast('Party Mode đã kết thúc', 'info');
+      }
       selectAgent(item.dataset.agentId);
       document.getElementById('sidebar').classList.remove('open');
     });

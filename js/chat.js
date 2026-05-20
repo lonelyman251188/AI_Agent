@@ -42,7 +42,13 @@ class ChatEngine {
 
   // Simple markdown → HTML
   renderMarkdown(text) {
-    let html = text
+    // Client-side safeguard: strip CJK (Chinese/Japanese/Korean) characters and full-width punctuation hallucinated by local models
+    let cleanText = text.replace(/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]+/g, '');
+    
+    // Clean up empty or double punctuation left behind
+    cleanText = cleanText.replace(/\s*[？\?]/g, '?').replace(/\?+/g, '?');
+
+    let html = cleanText
       // Thinking blocks
       .replace(/<thinking>([\s\S]*?)<\/thinking>/g, '<details class="thinking-block"><summary>🧠 Nhấn để xem luồng suy nghĩ</summary><div class="thinking-content">$1</div></details>')
       // Code blocks

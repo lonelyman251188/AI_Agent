@@ -153,7 +153,7 @@ async function handleSend() {
   const sendBtn = document.getElementById('send-btn');
   sendBtn.disabled = true;
 
-  const systemPromptCoT = `${currentAgent.systemPrompt}\n\nCHÚ Ý QUAN TRỌNG: Bạn LUÔN PHẢI bắt đầu bằng một khối <thinking>...các bước suy luận logic của bạn bằng Tiếng Việt...</thinking> để phân tích vấn đề trước khi đưa ra câu trả lời chính thức.\n\n[CÔNG CỤ TÌM KIẾM WEB]: Nếu thiếu thông tin, hãy xuất ra chuỗi [SEARCH: từ khóa].\n\nĐIỀU KIỆN TIÊN QUYẾT: TOÀN BỘ CÂU TRẢ LỜI CỦA BẠN (BAO GỒM CẢ PHẦN THINKING) PHẢI ĐƯỢC VIẾT 100% BẰNG TIẾNG VIỆT. TUYỆT ĐỐI KHÔNG SỬ DỤNG TIẾNG TRUNG QUỐC (CHINESE).`;
+  const systemPromptCoT = `${currentAgent.systemPrompt}\n\nCHÚ Ý QUAN TRỌNG: Bạn LUÔN PHẢI bắt đầu bằng một khối <thinking>...các bước suy luận logic của bạn bằng Tiếng Việt...</thinking> để phân tích vấn đề trước khi đưa ra câu trả lời chính thức.\n\n[CÔNG CỤ TÌM KIẾM WEB]: Nếu thiếu thông tin, hãy xuất ra chuỗi [SEARCH: từ khóa].\n\nĐIỀU KIỆN TIÊN QUYẾT: TOÀN BỘ CÂU TRẢ LỜI CỦA BẠN (BAO GỒM CẢ PHẦN THINKING) PHẢI ĐƯỢC VIẾT 100% BẰNG TIẾNG VIỆT. CẤM TUYỆT ĐỐI viết chữ Hán, chữ Trung Quốc (Hanzi/Chinese characters) hoặc tự dịch câu trả lời sang tiếng Trung. CHỈ ĐƯỢC DÙNG TIẾNG VIỆT.`;
 
   try {
     let currentText = '';

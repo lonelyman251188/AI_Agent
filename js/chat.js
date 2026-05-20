@@ -8,7 +8,18 @@ class ChatEngine {
     this.input = inputEl;
     this.sendBtn = sendBtnEl;
     this.isStreaming = false;
+    this.shouldAutoScroll = true;
     this._autoResize();
+    this._initScrollListener();
+  }
+
+  _initScrollListener() {
+    if (!this.container) return;
+    this.container.addEventListener('scroll', () => {
+      const threshold = 80;
+      const distanceFromBottom = this.container.scrollHeight - this.container.scrollTop - this.container.clientHeight;
+      this.shouldAutoScroll = (distanceFromBottom <= threshold);
+    });
   }
 
   _autoResize() {
@@ -19,7 +30,11 @@ class ChatEngine {
     });
   }
 
-  scrollToBottom() {
+  scrollToBottom(force = false) {
+    if (force) {
+      this.shouldAutoScroll = true;
+    }
+    if (!this.shouldAutoScroll) return;
     requestAnimationFrame(() => {
       this.container.scrollTop = this.container.scrollHeight;
     });
@@ -135,7 +150,7 @@ class ChatEngine {
     if (welcome) welcome.remove();
 
     this.container.appendChild(msg);
-    this.scrollToBottom();
+    this.scrollToBottom(isUser);
     return msg;
   }
 
@@ -166,7 +181,7 @@ class ChatEngine {
     if (welcome) welcome.remove();
 
     this.container.appendChild(msg);
-    this.scrollToBottom();
+    this.scrollToBottom(true);
 
     const bubble = msg.querySelector('.message-bubble');
     let fullText = '';

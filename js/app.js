@@ -255,15 +255,15 @@ async function handlePartySend(text, myGenId) {
   if (respondingAgents.length > 1) {
     if (generationId !== myGenId) return;
     const agentListText = respondingAgents.map(a => `- ${a.id}: ${a.name} (${a.role})`).join('\n');
-    const supervisorPrompt = `Bạn là Trưởng nhóm. Dựa vào lịch sử hội thoại, hãy chọn ra 1 đến 2 agent phù hợp nhất để trả lời tiếp theo.
+    const supervisorPrompt = `Bạn là Lan, Project Manager của dự án. Dựa vào lịch sử hội thoại, hãy chọn ra 1 đến 2 agent phù hợp nhất để trả lời tiếp theo.
 Danh sách agent hiện có:
 ${agentListText}
 
 CHỈ trả về một mảng JSON chứa các ID của agent được chọn (ví dụ: ["analyst", "pm"]). TUYỆT ĐỐI không viết gì thêm.`;
     
     const supervisorMsg = chatEngine.addSystemMessage({
-      icon: '👑',
-      content: '*Supervisor đang phân tích cuộc trò chuyện để phân công Agent phù hợp...*'
+      icon: '📋',
+      content: '*Lan (PM) đang phân tích yêu cầu để phân công công việc cho các Agent...*'
     });
 
     try {
@@ -280,7 +280,7 @@ CHỈ trả về một mảng JSON chứa các ID của agent được chọn (v
           const chosenNames = respondingAgents.map(a => `**${a.name} (${a.role})**`).join(' và ');
           const bubble = supervisorMsg.querySelector('.message-bubble');
           if (bubble) {
-            bubble.innerHTML = chatEngine.renderMarkdown(`👑 **Supervisor:** Đã chỉ định ${chosenNames} trả lời.`);
+            bubble.innerHTML = chatEngine.renderMarkdown(`📋 **Lan (PM):** Để giải quyết yêu cầu này, tôi xin phân công ${chosenNames} thực hiện.`);
           }
         } else {
           supervisorMsg.remove();

@@ -5,6 +5,7 @@
 let chatEngine;
 let currentAgent = null;
 let partyTopic = '';
+let generationId = 0;
 
 // ---- Init ----
 document.addEventListener('DOMContentLoaded', () => {
@@ -103,6 +104,8 @@ function renderAgentList() {
 }
 
 function selectAgent(agentId) {
+  generationId++;
+  aiApi.abortStream();
   const agent = AGENTS.find(a => a.id === agentId);
   if (!agent) return;
 
@@ -136,8 +139,10 @@ async function handleSend() {
   input.value = '';
   input.style.height = 'auto';
 
+  const myGenId = ++generationId;
+
   if (partyMode.active) {
-    await handlePartySend(text);
+    await handlePartySend(text, myGenId);
     return;
   }
 
@@ -169,6 +174,10 @@ async function handleSend() {
     const runStream = async (msgs) => {
       try {
         for await (const chunk of aiApi.streamChat(msgs, systemPromptCoT)) {
+          if (generationId !== myGenId) {
+            aiApi.abortStream();
+            return;
+          }
           stream.append(chunk);
           currentText = stream.getText();
           const match = currentText.match(/\[SEARCH:\s*([^\]]+)\]/);
@@ -184,10 +193,12 @@ async function handleSend() {
     };
 
     await runStream(history);
+    if (generationId !== myGenId) return;
 
     if (isSearching && searchQuery) {
       stream.append(`\n\n> 🔍 *Đang tìm kiếm Wikipedia cho: "${searchQuery}"...*\n\n`);
       const searchResult = await aiApi.searchWikipedia(searchQuery);
+      if (generationId !== myGenId) return;
       
       history.push({ role: 'assistant', content: currentText });
       history.push({ 
@@ -199,19 +210,25 @@ async function handleSend() {
       await runStream(history);
     }
 
+    if (generationId !== myGenId) return;
+
     const fullText = stream.finish();
     storage.saveMessage(currentAgent.id, { role: 'assistant', content: fullText });
   } catch (err) {
-    stream.finish();
-    showToast(`Lỗi: ${err.message}`, 'error');
-    console.error('Stream error:', err);
+    if (generationId === myGenId) {
+      stream.finish();
+      showToast(`Lỗi: ${err.message}`, 'error');
+      console.error('Stream error:', err);
+    }
   }
 
-  sendBtn.disabled = false;
+  if (generationId === myGenId) {
+    sendBtn.disabled = false;
+  }
 }
 
 // ---- Party Mode ----
-async function handlePartySend(text) {
+async function handlePartySend(text, myGenId) {
   // Add user message
   chatEngine.addMessage({ role: 'user', content: text });
   if (partyMode.sessionId) {
@@ -232,6 +249,7 @@ async function handlePartySend(text) {
   // --- Supervisor Agent (Feature 3) ---
   let respondingAgents = [...partyMode.selectedAgents];
   if (respondingAgents.length > 1) {
+    if (generationId !== myGenId) return;
     const agentListText = respondingAgents.map(a => `- ${a.id}: ${a.name} (${a.role})`).join('\n');
     const supervisorPrompt = `Bạn là Trưởng nhóm. Dựa vào lịch sử hội thoại, hãy chọn ra 1 đến 2 agent phù hợp nhất để trả lời tiếp theo.
 Danh sách agent hiện có:
@@ -246,6 +264,10 @@ CHỈ trả về một mảng JSON chứa các ID của agent được chọn (v
 
     try {
       const supervisorDecision = await aiApi.generateText(allMessages, supervisorPrompt, true);
+      if (generationId !== myGenId) {
+        supervisorMsg.remove();
+        return;
+      }
       const chosenIds = JSON.parse(supervisorDecision);
       if (Array.isArray(chosenIds) && chosenIds.length > 0) {
         const chosen = chosenIds.map(id => partyMode.selectedAgents.find(a => a.id === id)).filter(Boolean);
@@ -269,6 +291,8 @@ CHỈ trả về một mảng JSON chứa các ID của agent được chọn (v
   }
 
   for (const agent of respondingAgents) {
+    if (generationId !== myGenId) return;
+
     const systemPrompt = partyMode.getPartySystemPrompt(agent, partyTopic);
 
     const stream = chatEngine.startStreamMessage({
@@ -283,6 +307,10 @@ CHỈ trả về một mảng JSON chứa các ID của agent được chọn (v
     const runStream = async (msgs) => {
       try {
         for await (const chunk of aiApi.streamChat(msgs, systemPrompt)) {
+          if (generationId !== myGenId) {
+            aiApi.abortStream();
+            return;
+          }
           stream.append(chunk);
           currentText = stream.getText();
           const match = currentText.match(/\[SEARCH:\s*([^\]]+)\]/);
@@ -299,11 +327,13 @@ CHỈ trả về một mảng JSON chứa các ID của agent được chọn (v
 
     try {
       await runStream(allMessages);
+      if (generationId !== myGenId) return;
 
       // --- Web Search Tool (Feature 4) ---
       if (isSearching && searchQuery) {
         stream.append(`\n\n> 🔍 *Đang tìm kiếm Wikipedia cho: "${searchQuery}"...*\n\n`);
         const searchResult = await aiApi.searchWikipedia(searchQuery);
+        if (generationId !== myGenId) return;
         
         allMessages.push({ role: 'assistant', content: currentText });
         allMessages.push({ 
@@ -315,6 +345,8 @@ CHỈ trả về một mảng JSON chứa các ID của agent được chọn (v
         // Resume generation
         await runStream(allMessages);
       }
+
+      if (generationId !== myGenId) return;
 
       const fullText = stream.finish();
       if (!fullText.trim()) {
@@ -332,17 +364,22 @@ CHỈ trả về một mảng JSON chứa các ID của agent được chọn (v
         });
       }
     } catch (err) {
-      stream.finish();
-      if (stream.element) stream.element.remove();
-      showToast(`Lỗi từ ${agent.name}: ${err.message}`, 'error');
+      if (generationId === myGenId) {
+        stream.finish();
+        if (stream.element) stream.element.remove();
+        showToast(`Lỗi từ ${agent.name}: ${err.message}`, 'error');
+      }
       break;
     }
 
     // Small delay between agents
+    if (generationId !== myGenId) return;
     await new Promise(r => setTimeout(r, 300));
   }
 
-  sendBtn.disabled = false;
+  if (generationId === myGenId) {
+    sendBtn.disabled = false;
+  }
 }
 
 function openPartyModal() {
@@ -403,6 +440,8 @@ function restorePartyMode() {
 }
 
 function startParty() {
+  generationId++;
+  aiApi.abortStream();
   const selected = [...document.querySelectorAll('.party-agent-card.selected')]
     .map(el => el.dataset.agentId);
 
@@ -489,6 +528,8 @@ async function checkConnection() {
 
 // ---- New Chat ----
 function newChat() {
+  generationId++;
+  aiApi.abortStream();
   if (partyMode.active) {
     // Clear Party Mode history but stay in Party Mode
     storage.clearPartyConversation('party_default');
